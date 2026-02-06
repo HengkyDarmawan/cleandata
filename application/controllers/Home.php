@@ -8,7 +8,11 @@ class Home extends CI_Controller {
         $bulan_filter = $this->input->get('bulan') ?: $this->get_bulan_indo(date('m'));
         $tahun_filter = $this->input->get('tahun') ?: date('Y');
         $toko_filter  = $this->input->get('toko'); 
+        $search       = $this->input->get('q'); // Tambahkan input search produk
 
+        $this->db->from('import');
+        
+        // Filter Dasar
         $this->db->where('bulan', $bulan_filter);
         $this->db->where('tahun', $tahun_filter);
         
@@ -16,12 +20,21 @@ class Home extends CI_Controller {
             $this->db->where('toko', $toko_filter);
         }
 
+        // --- LOGIKA FILTER PER PRODUK ---
+        if ($search) {
+            $this->db->group_start();
+            $this->db->like('kode_produk', $search);
+            $this->db->or_like('nama_produk', $search);
+            $this->db->group_end();
+        }
+
         $data['title'] = "Data Master Import";
-        $data['data_import'] = $this->db->get('import')->result();
+        $data['data_import'] = $this->db->get()->result();
 
         $data['filter_bulan'] = $bulan_filter;
         $data['filter_tahun'] = $tahun_filter;
         $data['filter_toko']  = $toko_filter;
+        $data['search_query'] = $search; // Kirim balik ke view
 
         $this->load->view('header', $data);
         $this->load->view('home', $data);
@@ -108,76 +121,6 @@ class Home extends CI_Controller {
         }
         redirect('home');
     }
-
-    // public function ranking() {
-    //     $bulan_filter = $this->input->get('bulan');
-    //     $tahun_filter = $this->input->get('tahun');
-    //     $toko_filter  = $this->input->get('toko'); 
-    //     $metrik       = $this->input->get('metrik');
-
-    //     $allowed_metrics = [
-    //         'pengunjung_produk'    => 'pengunjung_produk',
-    //         'pembeli_dibuat'       => 'pembeli_dibuat',
-    //         'total_penjualan'      => 'total_penjualan',
-    //         'konversi_dibuat'      => 'konversi_dibuat',
-    //         'total_pembeli_siap'   => 'total_pembeli_siap',
-    //         'total_produk_siap'    => 'total_produk_siap',
-    //         'total_penjualan_siap' => 'total_penjualan_siap',
-    //         'tingkat_konversi_siap'=> 'tingkat_konversi_siap',
-    //         'tingkat_konversi'     => 'tingkat_konversi'
-    //     ];
-
-    //     $sort_column = (isset($allowed_metrics[$metrik])) ? $allowed_metrics[$metrik] : 'total_penjualan_siap';
-
-    //     $build_query = function($order) use ($bulan_filter, $tahun_filter, $toko_filter, $sort_column, $metrik) {
-    //         if ($bulan_filter == 'semua') {
-    //             // Perbaikan: Jika filter toko kosong, tampilkan nama toko sebagai 'GABUNGAN'
-    //             $toko_select = ($toko_filter) ? 'toko' : '"GABUNGAN" as toko';
-                
-    //             $this->db->select('kode_produk, nama_produk, tahun, "Semua Bulan" as bulan, '.$toko_select.',
-    //                 SUM(pengunjung_produk) as pengunjung_produk, SUM(pembeli_dibuat) as pembeli_dibuat, 
-    //                 SUM(produk_dibuat) as produk_dibuat, SUM(total_penjualan) as total_penjualan, 
-    //                 AVG(konversi_dibuat) as konversi_dibuat, SUM(total_pembeli_siap) as total_pembeli_siap, 
-    //                 SUM(total_produk_siap) as total_produk_siap, SUM(total_penjualan_siap) as total_penjualan_siap, 
-    //                 AVG(tingkat_konversi_siap) as tingkat_konversi_siap, AVG(tingkat_konversi) as tingkat_konversi');
-    //             $this->db->from('import');
-    //             $this->db->where('tahun', $tahun_filter);
-                
-    //             if ($toko_filter) {
-    //                 $this->db->where('toko', $toko_filter);
-    //             }
-                
-    //             // Group by kode_produk agar data antar toko/bulan menyatu
-    //             $this->db->group_by('kode_produk');
-                
-    //             $final_sort = (in_array($metrik, ['konversi_dibuat', 'tingkat_konversi_siap', 'tingkat_konversi'])) 
-    //                         ? "AVG($sort_column)" : "SUM($sort_column)";
-    //             $this->db->order_by($final_sort, $order);
-    //         } else {
-    //             $this->db->select('*');
-    //             $this->db->from('import');
-    //             if ($bulan_filter) $this->db->where('bulan', $bulan_filter);
-    //             if ($tahun_filter) $this->db->where('tahun', $tahun_filter);
-    //             if ($toko_filter)  $this->db->where('toko', $toko_filter);
-                
-    //             $this->db->order_by($sort_column, $order);
-    //         }
-    //         return $this->db->limit(10)->get()->result();
-    //     };
-
-    //     $data['top_10']    = $build_query('DESC');
-    //     $data['bottom_10'] = $build_query('ASC');
-
-    //     $data['filter_bulan']  = $bulan_filter;
-    //     $data['filter_tahun']  = $tahun_filter;
-    //     $data['filter_toko']   = $toko_filter; 
-    //     $data['filter_metrik'] = $metrik;
-
-    //     $this->load->view('header', $data);
-    //     $this->load->view('ranking', $data);
-    //     $this->load->view('footer', $data);
-    // }
-
 
     //perbandingan antara produk
     public function ranking() {
