@@ -60,7 +60,21 @@
                     <i class="fas fa-fw fa-table"></i>
                     <span>Shoppe</span></a>
             </li>
+            <!-- Divider -->
+            <hr class="sidebar-divider d-none d-md-block">
 
+            <!-- Nav Item - Tables -->
+            <li class="nav-item active">
+                <a class="nav-link" href="<?= base_url('tiktok')?>">
+                    <i class="fas fa-fw fa-table"></i>
+                    <span>Tiktok</span></a>
+            </li>
+            <!-- Nav Item - Tables -->
+            <li class="nav-item active">
+                <a class="nav-link" href="<?= base_url('tiktok/ranking')?>">
+                    <i class="fas fa-trophy"></i>
+                    <span>Ranking Tiktok</span></a>
+            </li>
             <!-- Divider -->
             <hr class="sidebar-divider d-none d-md-block">
 
