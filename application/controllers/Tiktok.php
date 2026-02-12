@@ -3,7 +3,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 // Pastikan autoload composer sudah berjalan untuk PhpSpreadsheet
 use PhpOffice\PhpSpreadsheet\IOFactory;
 
-class Tiktok extends CI_Controller {
+class Tiktok extends MY_Controller {
 
     public function __construct() {
         parent::__construct();

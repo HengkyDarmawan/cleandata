@@ -1,15 +1,33 @@
-<div id="selected-info" style="position: fixed; top: 100px; right: 30px; z-index: 9999; display: none;">
-    <div class="card border-left-primary shadow h-100 py-2">
-        <div class="card-body">
-            <div class="row no-gutters align-items-center">
-                <div class="col mr-2">
-                    <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Terpilih</div>
-                    <div class="h5 mb-0 font-weight-bold text-gray-800"><span id="count-selected">0</span> Item</div>
-                </div>
-                <div class="col-auto">
-                    <i class="fas fa-shopping-cart fa-2x text-gray-300"></i>
-                </div>
+<div id="selected-info" class="cart-panel">
+    <div class="card shadow border-left-primary">
+        <div class="card-header bg-primary text-white py-2 d-flex justify-content-between">
+            <b><i class="fas fa-shopping-cart"></i> Keranjang</b>
+            <!-- <button type="button" class="btn btn-sm btn-light" id="toggle-cart">Hide</button> -->
+        </div>
+        <div class="card-body p-2" style="max-height: 300px; overflow:auto;">
+            <ul id="cart-list" class="list-group list-group-sm"></ul>
+        </div>
+        <div class="card-footer bg-light">
+            <div class="form-group mb-1">
+                <label class="small">Harga Tiket</label>
+                <input type="number" id="ticket-price" class="form-control form-control-sm" value="50000">
             </div>
+
+            <hr class="my-2">
+
+            <div class="d-flex justify-content-between small text-muted">
+                <span>Total Nilai Hadiah</span>
+                <span id="cart-total">Rp 0</span>
+            </div>
+
+            <div class="d-flex justify-content-between font-weight-bold text-primary mt-1">
+                <span>Estimasi Tiket</span>
+                <span id="ticket-estimate">0</span>
+            </div>
+
+            <button class="btn btn-sm btn-success btn-block mt-2" onclick="$('#formMaster').submit()">
+                Proses
+            </button>
         </div>
     </div>
 </div>
@@ -65,7 +83,15 @@
                             <?php foreach($items as $i): ?>
                             <tr>
                                 <td class="text-center">
-                                    <input type="checkbox" class="check-item" name="selected_ids[]" value="<?= $i->id; ?>" style="transform: scale(1.2);">
+                                    <input type="checkbox"
+                                    class="check-item"
+                                    value="<?= $i->id; ?>"
+                                    data-id="<?= $i->id; ?>"
+                                    data-kode="<?= $i->kode_barang; ?>"
+                                    data-nama="<?= htmlspecialchars($i->nama_barang, ENT_QUOTES); ?>"
+                                    data-qty="<?= (int)$i->qty_asal; ?>"
+                                    data-modal="<?= (float)$i->modal_ppn; ?>"
+                                    style="transform: scale(1.2);">
                                 </td>
                                 <td><span class="font-weight-bold"><?= $i->kode_barang; ?></span></td>
                                 <td><?= $i->nama_barang; ?></td>
@@ -133,67 +159,4 @@
 <?php endforeach; ?>
 
 
-<script>
-$(document).ready(function () {
-
-    var table = $('#dataTable').DataTable({
-        pageLength: 10,
-        ordering: true,
-        searching: true,
-        lengthChange: true,
-        language: {
-            search: "Cari:",
-            lengthMenu: "Tampilkan _MENU_ data",
-            info: "Menampilkan _START_ - _END_ dari _TOTAL_",
-            paginate: { next: "›", previous: "‹" }
-        }
-    });
-
-    let selected = new Set();
-
-    function sync() {
-        table.rows().every(function () {
-            var cb = $(this.node()).find('.check-item');
-            if (cb.length) cb.prop('checked', selected.has(cb.val()));
-        });
-
-        $('#count-selected').text(selected.size);
-        $('#selected-info').toggle(selected.size > 0);
-    }
-
-    $('#dataTable tbody').on('change', '.check-item', function () {
-        var id = $(this).val();
-        this.checked ? selected.add(id) : selected.delete(id);
-        sync();
-    });
-
-    $('#check-all').on('change', function () {
-        var checked = this.checked;
-        table.rows({ search: 'applied' }).every(function () {
-            var cb = $(this.node()).find('.check-item');
-            if (!cb.length) return;
-            checked ? selected.add(cb.val()) : selected.delete(cb.val());
-            cb.prop('checked', checked);
-        });
-        sync();
-    });
-
-    table.on('draw', sync);
-
-    $('#formMaster').on('submit', function () {
-        if (selected.size === 0) {
-            alert('Pilih minimal satu barang!');
-            return false;
-        }
-
-        $(this).find('input[name="selected_ids[]"]').remove();
-        selected.forEach(id => {
-            $(this).append(`<input type="hidden" name="selected_ids[]" value="${id}">`);
-        });
-
-        return confirm(`Proses ${selected.size} barang?`);
-    });
-
-});
-</script>
 

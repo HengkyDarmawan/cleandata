@@ -22,6 +22,8 @@
 
     <!-- Custom styles for this page -->
     <link href="<?= base_url('assets/')?>vendor/datatables/dataTables.bootstrap4.min.css" rel="stylesheet">
+    <link href="<?= base_url('assets/vendor/fontawesome-free/css/all.min.css'); ?>" rel="stylesheet">
+    <link rel="stylesheet" href="<?= base_url('assets/css/style.css'); ?>
 
 </head>
 
@@ -44,56 +46,15 @@
             <!-- Divider -->
             <hr class="sidebar-divider my-0">
 
-            <!-- Nav Item - Dashboard -->
-            <li class="nav-item">
-                <a class="nav-link" href="<?= base_url('home/ranking')?>">
-                    <i class="fas fa-fw fa-tachometer-alt"></i>
-                    <span>Dashboard</span></a>
+            <?php foreach ($this->menu as $m): ?>
+            <li class="nav-item <?= active_menu($m->controller, $m->method); ?>">
+                <a class="nav-link" href="<?= base_url($m->url); ?>">
+                    <i class="<?= $m->icon; ?>"></i>
+                    <span><?= $m->title; ?></span>
+                </a>
             </li>
+            <?php endforeach; ?>
 
-            <!-- Divider -->
-            <hr class="sidebar-divider">
-
-            <!-- Nav Item - Tables -->
-            <li class="nav-item active">
-                <a class="nav-link" href="<?= base_url('home')?>">
-                    <i class="fas fa-fw fa-table"></i>
-                    <span>Shoppe</span></a>
-            </li>
-            <!-- Divider -->
-            <hr class="sidebar-divider d-none d-md-block">
-
-            <!-- Nav Item - Tables -->
-            <li class="nav-item active">
-                <a class="nav-link" href="<?= base_url('tiktok')?>">
-                    <i class="fas fa-fw fa-table"></i>
-                    <span>Tiktok</span></a>
-            </li>
-            <!-- Nav Item - Tables -->
-            <li class="nav-item active">
-                <a class="nav-link" href="<?= base_url('tiktok/ranking')?>">
-                    <i class="fas fa-trophy"></i>
-                    <span>Ranking Tiktok</span></a>
-            </li>
-            <!-- Divider -->
-            <hr class="sidebar-divider d-none d-md-block"><!-- Nav Item - Tables -->
-            <li class="nav-item active">
-                <a class="nav-link" href="<?= base_url('Lottery')?>">
-                    <i class="fas fa-fw fa-table"></i>
-                    <span>Import Dead Stock</span></a>
-            </li>
-            <!-- Nav Item - Tables -->
-            <li class="nav-item active">
-                <a class="nav-link" href="<?= base_url('Lottery/master_list')?>">
-                    <i class="fas fa-gift"></i>
-                    <span>List Deadstock</span></a>
-            </li>
-            <!-- Nav Item - Tables -->
-            <li class="nav-item active">
-                <a class="nav-link" href="<?= base_url('lottery/wheel')?>">
-                    <i class="fas fa-trophy"></i>
-                    <span>Log List Pemenang</span></a>
-            </li>
             <!-- Divider -->
             <hr class="sidebar-divider d-none d-md-block">
 

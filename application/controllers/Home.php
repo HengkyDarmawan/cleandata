@@ -2,7 +2,7 @@
 defined('BASEPATH') OR exit('No direct script access allowed');
 use PhpOffice\PhpSpreadsheet\IOFactory;
 
-class Home extends CI_Controller {
+class Home extends MY_Controller {
 
     public function index() {
         $bulan_filter = $this->input->get('bulan') ?: $this->get_bulan_indo(date('m'));

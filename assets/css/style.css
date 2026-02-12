@@ -1,0 +1,29 @@
+/* .cart-panel {
+    position: fixed;
+    top: 100px;
+    right: 30px;
+    width: 320px;
+    z-index: 1040;
+    display: none;
+}
+
+.cart-panel.collapsed {
+    height: 42px;
+    overflow: hidden;
+}
+
+.cart-panel.collapsed .card-body,
+.cart-panel.collapsed .card-footer {
+    display: none;
+} */
+#selected-info .card {
+    border-radius: 12px;
+}
+
+#selected-info .list-group-item {
+    background: #f9fbff;
+}
+
+#selected-info .badge {
+    font-size: 11px;
+}

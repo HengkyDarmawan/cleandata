@@ -2,7 +2,7 @@
 defined('BASEPATH') OR exit('No direct script access allowed');
 use PhpOffice\PhpSpreadsheet\Reader\Xlsx;
 
-class Lottery extends CI_Controller {
+class Lottery extends MY_Controller {
 
     public function __construct() {
         parent::__construct();
@@ -11,25 +11,28 @@ class Lottery extends CI_Controller {
 
     public function index() {
         $data['title'] = "Lottery & Mystery Box Dashboard";
-        
+
         // Statistik ringkas
-        $data['total_dead_stock'] = $this->db->where('umur_hari >', 150)
-                                             ->where('is_processed', 0)
-                                             ->count_all_results('master_dead_stock');
-                                             
-        $data['total_in_pool']    = $this->db->where('is_active', 1)
-                                             ->count_all_results('lottery_pool');
-                                             
-        // Menggunakan NULL coalescing ?? 0 untuk menghindari error jika data kosong
-        $q_pool = $this->db->select_sum('qty_lottery')
-                           ->get_where('lottery_pool', ['is_active' => 1])
-                           ->row();
-        $data['total_qty_pool'] = $q_pool->qty_lottery ?? 0;
+        $data['total_dead_stock'] = $this->db
+            ->where('umur_hari >', 150)
+            ->where('is_processed', 0)
+            ->count_all_results('master_dead_stock');
+
+        // ambil total event
+        $data['total_event'] = $this->db
+            ->count_all_results('lottery_event');
+
+        // total item di semua event
+        $q_items = $this->db->select_sum('qty_lottery')
+                            ->get('lottery_event_items')
+                            ->row();
+        $data['total_qty_event'] = $q_items->qty_lottery ?? 0;
 
         $this->load->view('header', $data);
         $this->load->view('lottery/index', $data);
         $this->load->view('footer');
     }
+
 
     public function import_excel()
     {
@@ -182,83 +185,95 @@ class Lottery extends CI_Controller {
 
 
     public function process_to_pool() {
-        $action = $this->input->post('action');
 
-        if ($action == 'massal') {
-            $ids = $this->input->post('selected_ids'); // Sudah sinkron dengan checkbox di view
-            if (empty($ids)) {
-                $this->session->set_flashdata('error', 'Pilih barang terlebih dahulu!');
-                redirect('lottery/master_list');
-            }
-            
-            // Ambil kode_barang untuk grouping
-            $this->db->select('kode_barang');
-            $this->db->where_in('id', $ids);
-            $res = $this->db->get('master_dead_stock')->result_array();
-            $codes = array_column($res, 'kode_barang');
+        $items = $this->input->post('items');
+        if (!$items) redirect('lottery/master_list');
 
-            // Ambil data detail untuk konfirmasi massal
-            $this->db->select('
-                MAX(id) as id, 
-                kode_barang, 
-                nama_barang, 
-                SUM(qty_asal) as total_qty,
-                (SUM(qty_asal * modal_ppn) / SUM(qty_asal)) as modal_per_unit
-            ');
-            $this->db->where_in('kode_barang', $codes);
-            $this->db->where('is_processed', 0);
-            $this->db->group_by('kode_barang'); 
-            $data['items'] = $this->db->get('master_dead_stock')->result();
-            
-            $data['title'] = "Setting Massal Win Rate";
-            $this->load->view('header', $data);
-            $this->load->view('lottery/v_konfirmasi_massal', $data);
-            $this->load->view('footer');
+        $ids = array_keys($items);
 
-        } elseif ($action == 'single') {
-            // PERBAIKAN: Ambil ID dari input hidden modal
-            $id = $this->input->post('id'); 
-            $qty = $this->input->post('qty_lottery');
-            $rate = $this->input->post('win_rate');
+        $this->db->select('id, kode_barang, nama_barang, qty_asal, modal_ppn as modal');
+        $this->db->where_in('id', $ids);
+        $this->db->where('is_processed', 0);
 
-            // Validasi tambahan agar tidak null
-            if ($id && $qty > 0 && $rate !== NULL) {
-                $process = $this->Lottery_model->move_to_pool($id, $qty, $rate);
-                if ($process) {
-                    $this->session->set_flashdata('success', 'Barang berhasil masuk ke Pool.');
-                } else {
-                    $this->session->set_flashdata('error', 'Gagal memproses ke Pool.');
-                }
-            } else {
-                $this->session->set_flashdata('error', 'Data input tidak lengkap.');
-            }
-            redirect('lottery/master_list');
+        $rows = $this->db->get('master_dead_stock')->result();
+
+        // gabungkan dengan data dari cart
+        foreach ($rows as $r) {
+            $r->qty   = (int) $items[$r->id]['qty'];
+            $r->modal = (float) $items[$r->id]['modal'];
+            $r->total = $r->qty * $r->modal;
         }
-    }
 
-    // Method tambahan untuk menyimpan hasil setting massal
+        $data['items'] = $rows;
+        $data['title'] = "Setting Event Lottery";
+
+        $this->load->view('header', $data);
+        $this->load->view('lottery/v_konfirmasi_massal', $data);
+        $this->load->view('footer');
+    } 
+
+
     public function save_massal_pool() {
-        $ids = $this->input->post('ids'); 
-        $qtys = $this->input->post('qty'); // Ambil qty dari form
-        $rates = $this->input->post('rates'); // Ambil rate individu dari form
 
-        if (empty($ids)) {
+        $this->load->model('Lottery_model');
+
+        $event_name    = $this->input->post('event_name');
+        $ticket_price = $this->input->post('price_per_ticket');
+        $ticket_price_manual = $this->input->post('ticket_price_manual');
+        $ids   = $this->input->post('ids');
+        $qtys  = $this->input->post('qty');
+        $rates = $this->input->post('rates');
+
+        if (!$ids || !$event_name) {
             redirect('lottery/master_list');
+            return;
         }
 
-        $success_count = 0;
-        foreach ($ids as $index => $id) {
-            $qty_to_pool = $qtys[$index];
-            $rate_per_unit = $rates[$index];
+        // Hitung total win rate
+        $total_rate = 0;
+        foreach ($rates as $i => $r) {
+            $total_rate += ($r * $qtys[$i]);
+        }
 
-            if ($qty_to_pool > 0) {
-                // Gunakan data qty dan rate sesuai baris di tabel
-                $process = $this->Lottery_model->move_to_pool($id, $qty_to_pool, $rate_per_unit);
-                if ($process) $success_count++;
+        if ($total_rate > 100) {
+            $this->session->set_flashdata('error', 'Total win rate > 100%');
+            redirect('lottery/master_list');
+            return;
+        }
+
+        $this->db->trans_start();
+
+        $event_id = $this->Lottery_model
+                        ->create_event($event_name, $ticket_price, $ticket_price_manual, $total_rate);
+
+        foreach ($ids as $i => $mid) {
+
+            if ($qtys[$i] <= 0) continue;
+
+            $m = $this->Lottery_model->get_master_by_id($mid);
+            if (!$m) continue;
+
+            if ($qtys[$i] > $m->qty_asal) {
+                $qtys[$i] = $m->qty_asal;
             }
+
+            $this->Lottery_model
+                ->add_event_item($event_id, $m, $qtys[$i], $rates[$i]);
+
+            // Kurangi stok (BUKAN hide)
+            $this->Lottery_model
+                ->reduce_stock($m->id, $qtys[$i]);
         }
 
-        $this->session->set_flashdata('success', "$success_count barang berhasil diproses ke pool.");
+        $this->db->trans_complete();
+
+        if ($this->db->trans_status() === FALSE) {
+            $this->session->set_flashdata('error', 'Gagal membuat event!');
+        } else {
+            $this->session->set_flashdata('success', 'Event berhasil dibuat!');
+        }
+
         redirect('lottery/master_list');
     }
+
 }

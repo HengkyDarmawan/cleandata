@@ -45,14 +45,11 @@
     <!-- Page level plugins -->
     <script src="<?= base_url('assets/')?>vendor/datatables/jquery.dataTables.min.js"></script>
     <script src="<?= base_url('assets/')?>vendor/datatables/dataTables.bootstrap4.min.js"></script>
-    <script>
-        $(function () {
-
-            if ( ! $.fn.DataTable.isDataTable('#dataTable') ) {
+        <script>
+            $(document).ready(function () {
 
                 var table = $('#dataTable').DataTable({
                     pageLength: 10,
-                    destroy: true,
                     ordering: true,
                     searching: true,
                     lengthChange: true,
@@ -64,61 +61,200 @@
                     }
                 });
 
-                let selected = new Set();
+                let cart = new Map();
 
-                function sync() {
-                    table.rows().every(function () {
-                        var cb = $(this.node()).find('.check-item');
-                        if (cb.length) cb.prop('checked', selected.has(cb.val()));
+                function renderCart() {
+                    let html = '';
+                    let grand = 0;
+
+                    cart.forEach(item => {
+
+                        let q = parseInt(item.qty) || 0;
+                        let m = parseFloat(item.modal) || 0;
+
+                        let subtotal = q * m;
+                        grand += subtotal;
+
+                        html += `
+                        <li class="list-group-item p-2">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <b>${item.kode}</b><br>
+                                    <small class="text-muted">${item.nama}</small>
+                                </div>
+                                <button type="button"
+                                        class="btn btn-sm btn-danger remove-item"
+                                        data-id="${item.id}">×</button>
+                            </div>
+
+                            <div class="d-flex align-items-center mt-2">
+                                <input type="number"
+                                    class="form-control form-control-sm qty-edit mr-1"
+                                    data-id="${item.id}"
+                                    value="${q}"
+                                    min="0"
+                                    style="width:70px">
+
+                                <input type="number"
+                                    class="form-control form-control-sm price-edit mr-1"
+                                    data-id="${item.id}"
+                                    value="${m}"
+                                    min="0"
+                                    style="width:110px">
+
+                                <small class="ml-auto font-weight-bold">
+                                    Rp ${subtotal.toLocaleString()}
+                                </small>
+                            </div>
+                        </li>`;
                     });
 
-                    $('#count-selected').text(selected.size);
-                    $('#selected-info').toggle(selected.size > 0);
+                    $('#cart-list').html(html || '<li class="list-group-item text-center text-muted">Kosong</li>');
+                    $('#cart-total').text('Rp ' + grand.toLocaleString());
+
+                    let ticketPrice = parseInt($('#ticket-price').val()) || 0;
+                    let est = ticketPrice > 0 ? Math.floor(grand / ticketPrice) : 0;
+                    $('#ticket-estimate').text(est.toLocaleString());
                 }
+                // $(document).on('input', '.qty-edit', function () {
+                //     let id = String($(this).data('id'));
+                //     let val = parseInt($(this).val()) || 0;
 
-                $('#dataTable tbody').on('change', '.check-item', function () {
-                    var id = $(this).val();
-                    this.checked ? selected.add(id) : selected.delete(id);
-                    sync();
+                //     if (cart.has(id)) {
+                //         let obj = cart.get(id);
+                //         obj.qty = val;
+                //         cart.set(id, obj);
+                //         renderCart();
+                //     }
+                // });
+                $(document).on('input', '.qty-edit', function () {
+                    let id = String($(this).data('id'));
+                    let val = parseInt($(this).val());
+
+                    if (!isNaN(val) && cart.has(id)) {
+                        let obj = cart.get(id);
+                        obj.qty = val;
+                        cart.set(id, obj);
+                        renderCart();
+                    }
                 });
 
+
+                // $(document).on('input', '.price-edit', function () {
+                //     let id = String($(this).data('id'));
+                //     let val = parseFloat($(this).val()) || 0;
+
+                //     if (cart.has(id)) {
+                //         let obj = cart.get(id);
+                //         obj.modal = val;
+                //         cart.set(id, obj);
+                //         renderCart();
+                //     }
+                // });
+                $(document).on('input', '.price-edit', function () {
+                    let id = String($(this).data('id'));
+                    let val = parseFloat($(this).val());
+
+                    if (!isNaN(val) && cart.has(id)) {
+                        let obj = cart.get(id);
+                        obj.modal = val;
+                        cart.set(id, obj);
+                        renderCart();
+                    }
+                });
+
+                $('#ticket-price').on('input', renderCart);
+
+                $('#toggle-cart').on('click', function () {
+                    $('#selected-info').toggleClass('collapsed');
+
+                    if ($('#selected-info').hasClass('collapsed')) {
+                        $(this).text('Show');
+                    } else {
+                        $(this).text('Hide');
+                    }
+                });
+
+                // checkbox klik
+                $('#dataTable').on('change', '.check-item', function () {
+                    let cb = $(this);
+                    let id = String(cb.val());
+
+                    if (cb.is(':checked')) {
+
+                        if (!cart.has(id)) {
+                            cart.set(id, {
+                                id: id,
+                                kode: cb.data('kode'),
+                                nama: cb.data('nama'),
+                                qty: parseInt(cb.data('qty')) || 1,   // default minimal 1
+                                modal: parseFloat(cb.data('modal')) || 0
+                            });
+                        }
+
+                    } else {
+                        cart.delete(id);
+                    }
+
+                    renderCart();
+                });
+
+                // check all
                 $('#check-all').on('change', function () {
-                    var checked = this.checked;
-                    table.rows({ search: 'applied' }).every(function () {
-                        var cb = $(this.node()).find('.check-item');
-                        if (!cb.length) return;
-                        checked ? selected.add(cb.val()) : selected.delete(cb.val());
+                    let checked = this.checked;
+
+                    $('#dataTable .check-item').each(function () {
+                        let cb = $(this);
+                        let id = cb.val();
+
                         cb.prop('checked', checked);
+
+                        if (checked) {
+                            if (!cart.has(id)) {
+                                cart.set(id, {
+                                    id: id,
+                                    kode: cb.data('kode'),
+                                    nama: cb.data('nama'),
+                                    qty: parseInt(cb.data('qty')),
+                                    modal: parseFloat(cb.data('modal'))
+                                });
+                            }
+                        } else {
+                            cart.delete(id);
+                        }
                     });
-                    sync();
+                    renderCart();
                 });
 
-                table.on('draw', sync);
+                // hapus dari cart
+                $('#cart-list').on('click', '.remove-item', function () {
+                    let id = String($(this).data('id'));
+                    cart.delete(id);
+                    $('#dataTable .check-item[value="' + id + '"]').prop('checked', false);
+                    renderCart();
+                });
 
+                // submit
                 $('#formMaster').on('submit', function () {
-                    if (selected.size === 0) {
+                    if (cart.size === 0) {
                         alert('Pilih minimal satu barang!');
                         return false;
                     }
 
-                    $(this).find('input[name="selected_ids[]"]').remove();
-                    selected.forEach(id => {
-                        $(this).append(
-                            $('<input>').attr({
-                                type: 'hidden',
-                                name: 'selected_ids[]',
-                                value: id
-                            })
-                        );
+                    $(this).find('input[name^="items"]').remove();
+
+                    cart.forEach(item => {
+                        $(this).append(`
+                            <input type="hidden" name="items[${item.id}][qty]" value="${item.qty}">
+                            <input type="hidden" name="items[${item.id}][modal]" value="${item.modal}">
+                        `);
                     });
 
-                    return confirm('Proses ' + selected.size + ' barang?');
+                    return confirm('Proses ' + cart.size + ' barang ke event?');
                 });
 
-            }
-
-        });
-        </script>
+            });
+            </script>
 
 </body>
 
