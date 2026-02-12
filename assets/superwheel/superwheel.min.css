@@ -1,0 +1,37 @@
+/* Container Roda */
+.wheel {
+    position: relative;
+    margin: 0 auto;
+    width: 400px;
+    height: 400px;
+    border-radius: 50%;
+    border: 10px solid #fff;
+    box-shadow: 0 0 20px rgba(0,0,0,0.2);
+    overflow: hidden;
+    transition: transform 8s cubic-bezier(0.15, 0, 0.15, 1);
+}
+
+/* Jarum Penunjuk */
+#wheel-container {
+    position: relative;
+    display: inline-block;
+}
+
+#wheel-container::after {
+    content: "";
+    position: absolute;
+    top: -20px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0; 
+    height: 0; 
+    border-left: 20px solid transparent;
+    border-right: 20px solid transparent;
+    border-top: 40px solid #e74c3c;
+    z-index: 10;
+}
+
+/* Canvas Canvas untuk menggambar slice */
+.wheel canvas {
+    display: block;
+}

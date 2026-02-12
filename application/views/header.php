@@ -76,6 +76,25 @@
                     <span>Ranking Tiktok</span></a>
             </li>
             <!-- Divider -->
+            <hr class="sidebar-divider d-none d-md-block"><!-- Nav Item - Tables -->
+            <li class="nav-item active">
+                <a class="nav-link" href="<?= base_url('Lottery')?>">
+                    <i class="fas fa-fw fa-table"></i>
+                    <span>Import Dead Stock</span></a>
+            </li>
+            <!-- Nav Item - Tables -->
+            <li class="nav-item active">
+                <a class="nav-link" href="<?= base_url('Lottery/master_list')?>">
+                    <i class="fas fa-gift"></i>
+                    <span>List Deadstock</span></a>
+            </li>
+            <!-- Nav Item - Tables -->
+            <li class="nav-item active">
+                <a class="nav-link" href="<?= base_url('lottery/wheel')?>">
+                    <i class="fas fa-trophy"></i>
+                    <span>Log List Pemenang</span></a>
+            </li>
+            <!-- Divider -->
             <hr class="sidebar-divider d-none d-md-block">
 
             <!-- Sidebar Toggler (Sidebar) -->
