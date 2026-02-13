@@ -275,5 +275,233 @@ class Lottery extends MY_Controller {
 
         redirect('lottery/master_list');
     }
+    
+    public function events()
+    {
+        $data['title'] = "Event Lottery";
+
+        $data['events'] = $this->db
+            ->order_by('id', 'DESC')
+            ->get('lottery_event')
+            ->result();
+
+        $this->load->view('header', $data);
+        $this->load->view('lottery/event_list', $data);
+        $this->load->view('footer');
+    }
+
+    private function get_event_stock($event_id)
+    {
+        $total = $this->db
+            ->select_sum('qty_lottery')
+            ->where('event_id',$event_id)
+            ->get('lottery_event_items')
+            ->row();
+
+        $sold = $this->db
+            ->select_sum('qty_ticket')
+            ->where('event_id',$event_id)
+            ->get('lottery_participants')
+            ->row();
+
+        $total = (int) ($total->qty_lottery ?? 0);
+        $sold  = (int) ($sold->qty_ticket ?? 0);
+
+        return [
+            'total' => $total,
+            'sold'  => $sold,
+            'sisa'  => max(0, $total - $sold)
+        ];
+    }
+
+
+    public function input_peserta()
+    {
+        $data['title'] = "Input Peserta Event";
+        $events = $this->db->get('lottery_event')->result();
+
+        foreach($events as $e){
+            $e->stock = $this->get_event_stock($e->id);
+        }
+
+        $data['events'] = $events;
+
+        $data['list'] = $this->db
+            ->select('p.*, e.event_name')
+            ->from('lottery_participants p')
+            ->join('lottery_event e','e.id=p.event_id','left')
+            ->order_by('p.id','DESC')
+            ->get()->result();
+
+        $this->load->view('header',$data);
+        $this->load->view('lottery/event_input_peserta',$data);
+        $this->load->view('footer');
+    }
+
+
+    public function save_peserta()
+    {
+        $event_id = $this->input->post('event_id');
+        $qty      = (int)$this->input->post('qty_ticket');
+
+        $this->db->trans_start();
+
+        $event = $this->db
+            ->where('id',$event_id)
+            ->limit(1)
+            ->get('lottery_event')
+            ->row();
+
+        if(!$event || $qty <= 0){
+            $this->db->trans_complete();
+            $this->session->set_flashdata('error','Event / Qty tidak valid');
+            redirect('lottery/input_peserta');
+            return;
+        }
+
+        $stock = $this->get_event_stock($event_id);
+
+        if($stock['sisa'] <= 0){
+            $this->db->trans_complete();
+            $this->session->set_flashdata('error','Tiket event ini sudah HABIS TERJUAL!');
+            redirect('lottery/input_peserta');
+            return;
+        }
+
+        if($qty > $stock['sisa']){
+            $this->db->trans_complete();
+            $this->session->set_flashdata('error',
+                'Sisa tiket hanya '.$stock['sisa'].' buah!'
+            );
+            redirect('lottery/input_peserta');
+            return;
+        }
+
+        $harga = (int)$event->ticket_price_manual;
+        $total = $qty * $harga;
+        $invoice = 'INV'.date('ymdHis').rand(10,99);
+
+        $this->db->insert('lottery_participants',[
+            'event_id'    => $event_id,
+            'nama'        => $this->input->post('nama'),
+            'no_hp'       => $this->input->post('no_hp'),
+            'email'       => $this->input->post('email'),
+            'alamat'      => $this->input->post('alamat'),
+            'kota'        => $this->input->post('kota'),
+            'sales'       => $this->input->post('sales'),
+            'qty_ticket'  => $qty,
+            'total_harga' => $total,
+            'invoice_no'  => $invoice,
+            'created_at'  => date('Y-m-d H:i:s')
+        ]);
+
+        $this->db->trans_complete();
+
+        if ($this->db->trans_status() === FALSE) {
+            $this->session->set_flashdata('error','Gagal menyimpan data');
+        } else {
+            $this->session->set_flashdata('success','Peserta berhasil ditambahkan');
+        }
+
+        redirect('lottery/input_peserta');
+    }
+
+    public function print_invoice($id)
+    {
+        $this->load->library('pdf'); // dompdf
+
+        $data['p'] = $this->db
+            ->select('p.*, e.event_name, e.ticket_price_manual')
+            ->from('lottery_participants p')
+            ->join('lottery_event e','e.id=p.event_id')
+            ->where('p.id',$id)
+            ->get()->row();
+
+        if(!$data['p']) show_404();
+
+        $html = $this->load->view('lottery/invoice_pdf', $data, true);
+
+        $this->pdf->create($html, $data['p']->invoice_no);
+    }
+
+    public function event_detail($id)
+    {
+        // EVENT
+        $event = $this->db
+            ->get_where('lottery_event', ['id'=>$id])
+            ->row();
+
+        if(!$event) show_404();
+
+        // PESERTA
+        $participants = $this->db
+            ->where('event_id',$id)
+            ->get('lottery_participants')
+            ->result();
+
+        shuffle($participants); // RANDOM URUTAN PESERTA
+
+        // HITUNG STOK TIKET
+        $total_ticket = $this->db
+            ->select_sum('qty_lottery')
+            ->where('event_id',$id)
+            ->get('lottery_event_items')
+            ->row()->qty_lottery ?? 0;
+
+        $sold_ticket = $this->db
+            ->select_sum('qty_ticket')
+            ->where('event_id',$id)
+            ->get('lottery_participants')
+            ->row()->qty_ticket ?? 0;
+
+        $sisa_ticket = max(0, $total_ticket - $sold_ticket);
+
+        // HADIAH
+        $items = $this->db
+            ->where('event_id',$id)
+            ->get('lottery_event_items')
+            ->result();
+
+        // HISTORY PEMENANG
+        $history = $this->db
+            ->where('event_id',$id)
+            ->order_by('id','DESC')
+            ->get('lottery_history')
+            ->result();
+
+        $data = [
+            'event'         => $event,
+            'participants' => $participants,
+            'items'        => $items,
+            'history'      => $history,
+            'total_ticket' => (int)$total_ticket,
+            'sold_ticket'  => (int)$sold_ticket,
+            'sisa_ticket'  => (int)$sisa_ticket,
+        ];
+
+        $this->load->view('header', $data);
+        $this->load->view('lottery/event_detail', $data);
+        $this->load->view('footer');
+    }
+    public function save_winner($event_id,$kode)
+    {
+        $item = $this->db->get_where('lottery_event_items',[
+            'event_id'=>$event_id,
+            'kode_barang'=>$kode
+        ])->row();
+
+        $this->db->insert('lottery_history',[
+            'event_id'=>$event_id,
+            'nama_pembeli'=>'AUTO',
+            'kode_barang'=>$item->kode_barang,
+            'nama_barang'=>$item->nama_barang,
+            'modal_unit'=>$item->modal_unit,
+            'created_at'=>date('Y-m-d H:i:s')
+        ]);
+
+        redirect('lottery/event_detail/'.$event_id);
+    }
+
+
 
 }

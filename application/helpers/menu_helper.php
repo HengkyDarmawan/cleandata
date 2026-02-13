@@ -12,15 +12,22 @@ function active_menu($ctrl, $method = null)
     $m = strtolower($CI->router->method);
 
     $ctrl = strtolower($ctrl);
-    $method = $method ? strtolower($method) : null;
+    $method = $method ? strtolower($method) : '';
 
-    if ($c == $ctrl) {
-        if ($method === null || $method == $m) {
-            return 'active';
-        }
+    // Jika controller beda → tidak aktif
+    if ($c !== $ctrl) {
+        return '';
     }
-    return '';
+
+    // Jika method di menu kosong → hanya aktif saat method = index
+    if ($method === '') {
+        return ($m === 'index') ? 'active' : '';
+    }
+
+    // Jika method di menu ada → harus cocok
+    return ($m === $method) ? 'active' : '';
 }
+
 
 /**
  * Untuk highlight group / parent menu
